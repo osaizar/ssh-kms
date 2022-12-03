@@ -4,8 +4,8 @@ from flask import Flask, request, jsonify, abort
 import re
 import json
 
-KEY_FILE = "/config/ssh-keys.json"
-SCRIPT_FILE = "/app/get-ssh-keys.py"
+KEY_FILE = "ssh-keys.json"
+SCRIPT_FILE = "get-ssh-keys.py"
 
 KEY_FORMAT = """
 [
@@ -24,8 +24,11 @@ app = Flask(__name__)
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def index(path):
-    body = """
+    body = f"""
     <h1>SSH KMS</h1>
+
+    <p>To install the client run:</p>
+    <p>$ wget -O get-ssh-keys.py {request.url_root}get_client && sudo python3 get-ssh-keys.py --install</p>
     """
     return body
 
@@ -41,10 +44,8 @@ def get_keys():
         except Exception as e:
             print(e)
             abort(400)
-
-
+            
         keys = filter_keys(data["user"], data["hostname"])
-        print(keys)
 
         return jsonify({"ssh-keys" : [k["ssh-key"] for k in keys]}), 200
     except Exception as e:
@@ -52,9 +53,9 @@ def get_keys():
         abort(500)
 
 
-@app.route('/get_script', methods=["GET"])
-def get_script():
-    script = open(SCRIPT_FILE, "r").read()
+@app.route('/get_client', methods=["GET"])
+def get_client():
+    script = open(SCRIPT_FILE, "r").read().replace("{URL}", request.url_root)
     return script, 200
 
 
