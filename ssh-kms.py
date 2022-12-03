@@ -4,8 +4,8 @@ from flask import Flask, request, jsonify, abort
 import re
 import json
 
-KEY_FILE = "ssh-keys.json"
-SCRIPT_FILE = "get-ssh-keys.py"
+KEY_FILE = "/config/ssh-keys.json"
+SCRIPT_FILE = "/app/get-ssh-keys.py"
 
 KEY_FORMAT = """
 [
