@@ -8,7 +8,7 @@ import requests
 SSHD_CONF = "/etc/ssh/sshd_config"
 URL = "{URL}"
 
-SCRIPT_PATH = "/usr/bin/get-ssh-keys"
+CLIENT_PATH = "/usr/bin/get-ssh-keys"
 
 
 def get_ssh_keys(user):
@@ -29,20 +29,20 @@ def get_ssh_keys(user):
 
 def install():
     if os.getuid() != 0:
-        print("[!] Run the installation script as root!")
+        print("[!] Run the installation client as root!")
         sys.exit(1)
     
-    print(f"[+] Copying the script to {SCRIPT_PATH}")
-    script_path = os.path.abspath( __file__ )
-    shutil.copy(script_path, SCRIPT_PATH)
+    print(f"[+] Copying the client to {CLIENT_PATH}")
+    client_path = os.path.abspath( __file__ )
+    shutil.copy(client_path, CLIENT_PATH)
 
     print("[+] Setting the correct permissions")
-    os.chmod(SCRIPT_PATH, 0o755)
-    os.chown(SCRIPT_PATH, 0, 0)
+    os.chmod(CLIENT_PATH, 0o755)
+    os.chown(CLIENT_PATH, 0, 0)
     
     print("[+] Configuring AuthorizedKeysCommand in sshd_config")
     sshd_config = open(SSHD_CONF, "r").read()
-    sshd_config = sshd_config.replace("#AuthorizedKeysCommand none", f"AuthorizedKeysCommand {SCRIPT_PATH} --get-key %u")
+    sshd_config = sshd_config.replace("#AuthorizedKeysCommand none", f"AuthorizedKeysCommand {CLIENT_PATH} --get-key %u")
     sshd_config = sshd_config.replace("#AuthorizedKeysCommandUser nobody", "AuthorizedKeysCommandUser nobody")
 
     with open(SSHD_CONF, "w") as s:
@@ -55,16 +55,16 @@ def install():
 
 def uninstall():
     if os.getuid() != 0:
-        print("[!] Run the uninstallation script as root!")
+        print("[!] Run the uninstallation client as root!")
         sys.exit(1)
     
-    print(f"[+] Delting {SCRIPT_PATH}")
-    script_path = os.path.abspath( __file__ )
-    os.remove(SCRIPT_PATH)
+    print(f"[+] Delting {CLIENT_PATH}")
+    client_path = os.path.abspath( __file__ )
+    os.remove(CLIENT_PATH)
     
     print("[+] Commenting AuthorizedKeysCommand in sshd_config")
     sshd_config = open(SSHD_CONF, "r").read()
-    sshd_config = sshd_config.replace(f"AuthorizedKeysCommand {SCRIPT_PATH} --get-key %u", "#AuthorizedKeysCommand none")
+    sshd_config = sshd_config.replace(f"AuthorizedKeysCommand {CLIENT_PATH} --get-key %u", "#AuthorizedKeysCommand none")
     sshd_config = sshd_config.replace("AuthorizedKeysCommandUser nobody", "#AuthorizedKeysCommandUser nobody")
 
     with open(SSHD_CONF, "w") as s:

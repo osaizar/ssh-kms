@@ -7,7 +7,7 @@ MAINTAINER Oier Saizar <oisaizar@gmail.com>
 WORKDIR /app
 #Copy the app
 COPY ssh-kms.py /app
-COPY get-ssh-keys.py /app
+COPY client/get-ssh-keys.py /app/client/get-ssh.keys.py
 COPY requirements.txt /app
 
 # Copy the config

@@ -5,7 +5,7 @@ import re
 import json
 
 KEY_FILE = "/config/ssh-keys.json"
-SCRIPT_FILE = "/app/get-ssh-keys.py"
+CLIENT_FILE = "/app/client/get-ssh-keys.py"
 
 KEY_FORMAT = """
 [
@@ -55,8 +55,13 @@ def get_keys():
 
 @app.route('/get_client', methods=["GET"])
 def get_client():
-    script = open(SCRIPT_FILE, "r").read().replace("{URL}", request.url_root)
-    return script, 200
+    client = open(CLIENT_FILE, "r").read().replace("{URL}", request.url_root)
+    return client, 200
+
+
+"""
+Helping Functions start:
+"""
 
 
 def filter_keys(user, hostname):
@@ -114,6 +119,11 @@ def read_key_json():
         raise Exception(f"Key file {KEY_FILE} is not a valid json file!, {e}")
     
     return False
+
+
+"""
+Helping Functions end
+"""
 
 
 if __name__ == '__main__':
