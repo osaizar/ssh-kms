@@ -8,7 +8,7 @@ No database needed, no ldap needed. Just you and a JSON user & key list.
 ## How does it work
 
 ### The server
-SSH-KMS is a web server written in python that serves ssh public keys depending on the user and the server that is asking for it.
+SSH-KMS is a FastAPI web server written in python that serves ssh public keys depending on the user and the server that is asking for it.
 
 The ssh keys need to be configured in the ssh-keys.json config file, exposed in the container in the /config directory.
 

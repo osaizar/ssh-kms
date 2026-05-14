@@ -1,10 +1,13 @@
 import os
-
-from flask import Flask, request, jsonify, abort
 import re
 import json
+from contextlib import asynccontextmanager
 
-KEY_FILE = "/config/ssh-keys.json"
+import uvicorn
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse, PlainTextResponse
+
+KEY_FILE = "ssh-keys.json"
 CLIENT_FILE = "/app/client/get-ssh-keys.py"
 
 KEY_FORMAT = """
@@ -19,44 +22,65 @@ KEY_FORMAT = """
 PORT = 5000
 ADDR = "0.0.0.0"
 
-app = Flask(__name__)
 
-@app.route('/', defaults={'path': ''})
-@app.route('/<path:path>')
-def index(path):
+@asynccontextmanager
+async def lifespan(_app):
+    read_key_json()
+    yield
+
+
+app = FastAPI(title="SSH KMS", lifespan=lifespan)
+
+
+def index_body(base_url):
     body = f"""
     <h1>SSH KMS</h1>
 
     <p>To install the client run:</p>
-    <p>$ wget -O get-ssh-keys.py {request.url_root}get_client && sudo python3 get-ssh-keys.py --install</p>
+    <p>$ wget -O get-ssh-keys.py {base_url}get_client && sudo python3 get-ssh-keys.py --install</p>
     """
     return body
 
 
-@app.route('/', methods=["POST"])
-def get_keys():
+@app.get("/get_client", response_class=PlainTextResponse)
+async def get_client(request: Request):
     try:
-        try:
-            data = request.get_json(silent = True) # user, hostname
-            if "user" not in data or "hostname" not in data:
-                print("Error! 'user' and 'hostname' not included in request")
-                abort(400)
-        except Exception as e:
-            print(e)
-            abort(400)
-
-        keys = filter_keys(data["user"], data["hostname"])
-
-        return jsonify({"ssh-keys" : [k["ssh-key"] for k in keys]}), 200
+        with open(CLIENT_FILE, "r", encoding="utf-8") as client_file:
+            return client_file.read().replace("{URL}", str(request.base_url))
     except Exception as e:
         print(e)
-        abort(500)
+        raise HTTPException(status_code=500)
 
 
-@app.route('/get_client', methods=["GET"])
-def get_client():
-    client = open(CLIENT_FILE, "r").read().replace("{URL}", request.url_root)
-    return client, 200
+@app.get("/", response_class=HTMLResponse)
+@app.get("/{path:path}", response_class=HTMLResponse)
+async def index(request: Request, path: str = ""):
+    return index_body(str(request.base_url))
+
+
+@app.post("/")
+async def get_keys(request: Request):
+    try:
+        data = await request.json()  # user, hostname
+        if (
+            not isinstance(data, dict)
+            or not isinstance(data.get("user"), str)
+            or not isinstance(data.get("hostname"), str)
+        ):
+            print("Error! 'user' and 'hostname' string values not included in request")
+            raise HTTPException(status_code=400)
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=400)
+
+    try:
+        keys = filter_keys(data["user"], data["hostname"])
+        return {"ssh-keys" : [k["ssh-key"] for k in keys]}
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=500)
 
 
 """
@@ -127,5 +151,4 @@ Helping Functions end
 
 
 if __name__ == '__main__':
-    read_key_json() # Just to check the file
-    app.run(host=ADDR, port=PORT)
+    uvicorn.run(app, host=ADDR, port=PORT)

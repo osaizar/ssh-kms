@@ -1,7 +1,7 @@
 [
     {
-        "user" : "", 
-        "hostname_regex" : "", 
-        "ssh-key" : ""
+        "user" : "osaizar", 
+        "hostname_regex" : "test-host", 
+        "ssh-key" : "aaaa"
     }
 ]
