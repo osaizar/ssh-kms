@@ -1,3 +1,4 @@
+import errno
 import fcntl
 import json
 import os
@@ -126,22 +127,39 @@ def validate_key_id(key_id, seen_ids):
 
 
 def write_key_json(keys):
-    """Persist key entries to the JSON configuration file atomically."""
+    """Persist key entries to the JSON configuration file under an exclusive lock."""
     with key_file_lock(exclusive=True):
         write_key_json_unlocked(keys)
 
 
 def write_key_json_unlocked(keys):
-    """Persist key entries atomically without taking a file lock."""
+    """Persist key entries without taking a file lock."""
     key_file = Path(KEY_FILE)
     key_file.parent.mkdir(parents=True, exist_ok=True)
     temp_file = key_file.with_suffix(f"{key_file.suffix}.tmp")
+    content = json.dumps(order_key_entries(keys), indent=4) + "\n"
 
     with open(temp_file, "w", encoding="utf-8") as output_file:
-        json.dump(order_key_entries(keys), output_file, indent=4)
-        output_file.write("\n")
+        output_file.write(content)
+        output_file.flush()
+        os.fsync(output_file.fileno())
 
-    os.replace(temp_file, key_file)
+    try:
+        os.replace(temp_file, key_file)
+    except OSError as e:
+        if e.errno != errno.EBUSY:
+            raise
+
+        write_key_json_in_place(key_file, content)
+        temp_file.unlink(missing_ok=True)
+
+
+def write_key_json_in_place(key_file, content):
+    """Rewrite Docker file bind mounts that cannot be replaced by rename."""
+    with open(key_file, "w", encoding="utf-8") as output_file:
+        output_file.write(content)
+        output_file.flush()
+        os.fsync(output_file.fileno())
 
 
 @contextmanager

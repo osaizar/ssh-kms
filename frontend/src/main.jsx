@@ -398,7 +398,6 @@ function KeyCard({ entry, onDelete, canDelete }) {
   return (
     <article className="key-card">
       <div className="rule-grid">
-        <RulePill label="ID" value={entry.id} />
         <RulePill label="User" value={entry.user} />
         <RulePill label="Host" value={hostValue} />
       </div>

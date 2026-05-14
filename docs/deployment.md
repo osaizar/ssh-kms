@@ -71,6 +71,10 @@ Key mounted paths:
 | `keycloak/realm/ssh-kms-realm.json` | `/opt/keycloak/data/import/ssh-kms-realm.json` | Automated realm, client, roles, and users. |
 | `keycloak/themes/ssh-kms` | `/opt/keycloak/themes/ssh-kms` | Custom login theme. |
 
+Because Compose mounts the key configuration as a single file, the backend
+rewrites that file in place when Docker refuses rename-based replacement of the
+mount target. Writes still hold the backend's exclusive file lock.
+
 Use a different key file:
 
 ```bash

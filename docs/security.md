@@ -74,9 +74,11 @@ For automation:
 
 ## Operational Notes
 
-Key changes are written atomically to the configured JSON file. Create and delete
-operations hold an OS file lock so two administrators do not overwrite each
-other's changes. Events are printed as structured JSON logs with:
+Create and delete operations hold an OS file lock so two administrators do not
+overwrite each other's changes. Key changes use atomic replace when the
+filesystem allows it. Docker single-file bind mounts cannot be replaced by
+rename, so those deployments fall back to rewriting the mounted file while the
+same exclusive lock is held. Events are printed as structured JSON logs with:
 
 - timestamp
 - actor

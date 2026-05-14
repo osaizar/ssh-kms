@@ -1,4 +1,6 @@
+import errno
 import json
+import os
 
 import pytest
 
@@ -78,3 +80,24 @@ def test_write_key_json_uses_readable_field_order(key_file):
     persisted_key = json.loads(key_file.read_text(encoding="utf-8"))[0]
     assert list(persisted_key) == ["id", "user", "hostname", "ssh-key"]
     assert persisted_key["id"] == "key_alice"
+
+
+def test_write_key_json_falls_back_for_busy_bind_mount(key_file, monkeypatch):
+    """Rewrite the target file when Docker refuses rename over a file mount."""
+    def busy_replace(_source, _target):
+        raise OSError(errno.EBUSY, os.strerror(errno.EBUSY))
+
+    monkeypatch.setattr(storage.os, "replace", busy_replace)
+
+    storage.write_key_json([
+        {
+            "id": "key_bob",
+            "user": "bob",
+            "hostname": "host-b",
+            "ssh-key": "ssh-ed25519 BBBB",
+        }
+    ])
+
+    persisted = json.loads(key_file.read_text(encoding="utf-8"))
+    assert persisted[0]["id"] == "key_bob"
+    assert not key_file.with_suffix(".json.tmp").exists()
