@@ -85,11 +85,13 @@ Example configuration:
 ```json
 [
   {
+    "id": "key_alice_web01",
     "user": "alice",
     "hostname": "lab-web-01",
     "ssh-key": "ssh-ed25519 AAAAC3Nza..."
   },
   {
+    "id": "key_ops_lab",
     "user": "ops",
     "hostname_regex": "lab-.+",
     "ssh-key": "ssh-ed25519 AAAAC3Nza..."
@@ -100,10 +102,14 @@ Example configuration:
 User regexes are intentionally not supported. Hostname regexes are the only
 regex matchers.
 
+Each entry must have a stable `id`. The API generates IDs for new entries, and
+manual JSON edits must preserve existing IDs or provide a unique ID for new
+entries. Deletes use IDs instead of JSON array positions.
+
 ## Repository Layout
 
 ```text
-backend/          FastAPI application and Python requirements
+backend/          Installable FastAPI backend package
 client/           SSH AuthorizedKeysCommand client
 config/           SSH key JSON configuration
 docs/             Operator and developer documentation
@@ -126,6 +132,9 @@ in [scripts](scripts).
 | Docker, Compose, scripts, and deployment notes | [docs/deployment.md](docs/deployment.md) |
 | Security model and hardening checklist | [docs/security.md](docs/security.md) |
 
+The UI also includes a JSON export button for quick backups of the current key
+configuration.
+
 ## Local Development
 
 Create and activate the Python environment:
@@ -133,14 +142,23 @@ Create and activate the Python environment:
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r backend/requirements.txt
+pip install -e "backend[test]"
 ```
 
 Run the backend without OIDC:
 
 ```bash
-python backend/ssh-kms.py
+python -m ssh_kms
 ```
+
+Run the backend and client tests:
+
+```bash
+pytest
+```
+
+The default pytest configuration reports branch coverage for the backend package
+and SSH client helper.
 
 Run the frontend dev server:
 
@@ -155,8 +173,9 @@ Build the production frontend:
 npm --prefix frontend run build
 ```
 
-Docker builds run the frontend build automatically and copy `frontend/dist` into
-the final Python image.
+The Docker build script runs the pytest suite from a backend test image before
+building the final Compose image. Docker builds also run the frontend build
+automatically and copy `frontend/dist` into the final Python image.
 
 ## Install The SSH Client
 

@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   Check,
   ChevronDown,
+  Download,
   KeyRound,
   LogIn,
   LogOut,
@@ -33,6 +34,7 @@ function App() {
   const [form, setForm] = React.useState(emptyForm);
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
+  const [exporting, setExporting] = React.useState(false);
   const [error, setError] = React.useState("");
   const [notice, setNotice] = React.useState("");
   const [auth, setAuth] = React.useState({
@@ -135,8 +137,37 @@ function App() {
     }
   }
 
+  async function exportConfig() {
+    setExporting(true);
+    setError("");
+    setNotice("");
+
+    try {
+      const response = await apiFetch("/api/keys/export", {}, auth, setAuth);
+      if (!response.ok) {
+        throw new Error(await readError(response, "Export request failed"));
+      }
+
+      const blob = await response.blob();
+      const downloadUrl = URL.createObjectURL(blob);
+      const downloadLink = document.createElement("a");
+      downloadLink.href = downloadUrl;
+      downloadLink.download = filenameFromContentDisposition(response.headers.get("Content-Disposition"));
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      downloadLink.remove();
+      URL.revokeObjectURL(downloadUrl);
+      setNotice("Config export downloaded");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setExporting(false);
+    }
+  }
+
   const exactHosts = keys.filter((key) => hasField(key, "hostname")).length;
   const regexHosts = keys.length - exactHosts;
+  const uniqueUsers = new Set(keys.map((key) => key.user)).size;
 
   if (oidcEnabled && !auth.ready) {
     return <AuthScreen title="Connecting to Keycloak" detail="Preparing secure session" />;
@@ -175,6 +206,9 @@ function App() {
 
         <div className="topbar-actions">
           {oidcEnabled && <UserBadge user={auth.user} tokenSet={auth.tokenSet} />}
+          <button className="icon-button ghost" type="button" onClick={exportConfig} disabled={exporting} title="Export JSON">
+            <Download size={18} />
+          </button>
           <button className="icon-button ghost" type="button" onClick={loadKeys} title="Refresh keys">
             <RefreshCcw size={18} />
           </button>
@@ -183,7 +217,7 @@ function App() {
 
       <section className="stats-grid" aria-label="Key summary">
         <Stat label="Entries" value={keys.length} icon={<KeyRound size={20} />} tone="ink" />
-        <Stat label="Users" value={keys.length} icon={<ShieldCheck size={20} />} tone="green" />
+        <Stat label="Users" value={uniqueUsers} icon={<ShieldCheck size={20} />} tone="green" />
         <Stat label="Exact hosts" value={exactHosts} icon={<Check size={20} />} tone="blue" />
         <Stat label="Regex hosts" value={regexHosts} icon={<ChevronDown size={20} />} tone="amber" />
       </section>
@@ -364,6 +398,7 @@ function KeyCard({ entry, onDelete, canDelete }) {
   return (
     <article className="key-card">
       <div className="rule-grid">
+        <RulePill label="ID" value={entry.id} />
         <RulePill label="User" value={entry.user} />
         <RulePill label="Host" value={hostValue} />
       </div>
@@ -609,6 +644,15 @@ async function readError(response, fallback) {
   }
 
   return `${fallback} with HTTP ${response.status}`;
+}
+
+function filenameFromContentDisposition(header) {
+  if (!header) {
+    return `ssh-kms-keys-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
+  }
+
+  const match = header.match(/filename="?([^"]+)"?/i);
+  return match?.[1] || `ssh-kms-keys-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
 }
 
 createRoot(document.getElementById("root")).render(<App />);

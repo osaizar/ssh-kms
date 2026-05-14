@@ -9,14 +9,21 @@ builds the React frontend, and serves the compiled UI from FastAPI.
 ./build.sh
 ```
 
-The script delegates to [scripts/build.sh](../scripts/build.sh), which runs
-`docker compose build`.
+The script delegates to [scripts/build.sh](../scripts/build.sh), which builds a
+backend test image, runs pytest from that image, then runs `docker compose build`.
 
 The Dockerfile uses a multi-stage build:
 
 1. `node:22-slim` builds the React app with Vite.
-2. `python:3.12-slim` installs the backend dependencies.
-3. The compiled `frontend/dist` files are copied into the final image.
+2. `python:3.12-slim` installs the backend package.
+3. A backend test stage installs the test extras.
+4. The compiled `frontend/dist` files are copied into the final image.
+
+The build script explicitly builds the `backend-test` target and runs
+`pytest /app/tests` in a short-lived container before the final Compose image is
+built, so `./build.sh` fails when pytest fails. The test run uses the repository
+pytest configuration, including branch coverage and missing-line reporting.
+Test-only dependencies are not inherited by the final runtime image.
 
 The default base images use the public ECR Docker Hub mirror:
 
@@ -104,3 +111,8 @@ truth for SSH authorization decisions.
 
 Treat that file as sensitive operational data. An attacker with write access to
 it can grant SSH access to matching hosts.
+
+The management UI includes an export button, and the same data is available
+through `GET /api/keys/export` for authenticated users with `viewer` access.
+This is useful for manual snapshots, but it should not replace regular backups
+of the mounted config file.

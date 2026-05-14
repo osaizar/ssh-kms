@@ -75,11 +75,13 @@ For automation:
 ## Operational Notes
 
 Key changes are written atomically to the configured JSON file. Create and delete
-events are printed as structured JSON logs with:
+operations hold an OS file lock so two administrators do not overwrite each
+other's changes. Events are printed as structured JSON logs with:
 
 - timestamp
 - actor
 - action
+- stable key entry ID
 - target user
 - exact hostname or hostname regex
 

@@ -1,5 +1,6 @@
 [
     {
+        "id": "key_test",
         "user": "Test",
         "hostname_regex": "asdfasdfasdf.*",
         "ssh-key": "as\u00b4fjkkl\u00f1asj\u0301fklasdjflk\u00f1asd"
