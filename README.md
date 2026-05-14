@@ -8,11 +8,11 @@ No database needed, no ldap needed. Just you and a JSON user & key list.
 ## How does it work
 
 ### The server
-SSH-KMS is a FastAPI web server written in python that serves ssh public keys depending on the user and the server that is asking for it.
+SSH-KMS is a FastAPI web server written in python that serves ssh public keys depending on the user and the server that is asking for it. It also serves a React management UI for editing the JSON key list.
 
 The ssh keys need to be configured in the ssh-keys.json config file, exposed in the container in the /config directory.
 
-This configuration file supports user names, host names and regexes that match user or hostnames:
+This configuration file supports exact user names and exact or regex-based hostnames:
 
 ```json
 [
@@ -35,6 +35,52 @@ This configuration file supports user names, host names and regexes that match u
 ```
 
 This can be used as an ACL for a group of servers or a lab.
+
+### The management UI
+Run the backend:
+
+```bash
+source .venv/bin/activate
+python ssh-kms.py
+```
+
+Run the frontend in development:
+
+```bash
+npm --prefix frontend install
+npm --prefix frontend run dev
+```
+
+Open the Vite URL and use the console to add or remove key entries. The UI writes to `ssh-keys.json` through the backend API.
+
+For a production-style single process, build the frontend and start FastAPI:
+
+```bash
+npm --prefix frontend run build
+source .venv/bin/activate
+python ssh-kms.py
+```
+
+Docker builds compile the React frontend automatically:
+
+```bash
+./build.sh
+./run.sh
+```
+
+The Docker image serves the compiled frontend and API from the FastAPI process on port `5000`.
+
+The backend exposes these management endpoints:
+
+```text
+GET    /api/keys
+POST   /api/keys
+DELETE /api/keys/{id}
+```
+
+Entries created through the UI or API always use an exact `user`. Host matching can still use either `hostname` or `hostname_regex`.
+
+The original SSH lookup endpoint is still available at `POST /`.
 
 ### The client
 The client needs to be installed all the servers that use this authentication method.

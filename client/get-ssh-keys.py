@@ -12,6 +12,7 @@ CLIENT_PATH = "/usr/bin/get-ssh-keys"
 
 
 def get_ssh_keys(user):
+    """Fetch and print authorized SSH public keys for the requested user."""
     hostname = os.uname()[1]
 
     print({"user" : user, "hostname" : hostname})
@@ -28,6 +29,7 @@ def get_ssh_keys(user):
 
 
 def install():
+    """Install this client as sshd's AuthorizedKeysCommand."""
     if os.getuid() != 0:
         print("[!] Run the installation client as root!")
         sys.exit(1)
@@ -54,6 +56,7 @@ def install():
 
 
 def uninstall():
+    """Remove this client from sshd's AuthorizedKeysCommand configuration."""
     if os.getuid() != 0:
         print("[!] Run the uninstallation client as root!")
         sys.exit(1)
@@ -76,6 +79,7 @@ def uninstall():
 
 
 def print_help():
+    """Print supported command-line usage."""
     print(f"[!] Usage: {__file__} --get-key <username> | --install | --uninstall")
 
 
