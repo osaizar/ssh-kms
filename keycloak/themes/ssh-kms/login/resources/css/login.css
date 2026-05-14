@@ -1,0 +1,346 @@
+:root {
+  color-scheme: light;
+  --ssh-kms-bg: #0f1b1d;
+  --ssh-kms-bg-soft: #18302c;
+  --ssh-kms-panel: #f9fbfa;
+  --ssh-kms-panel-strong: #ffffff;
+  --ssh-kms-ink: #101817;
+  --ssh-kms-muted: #52635d;
+  --ssh-kms-green: #1f6b45;
+  --ssh-kms-green-dark: #155435;
+  --ssh-kms-copper: #c96d43;
+  --ssh-kms-line: #d8e1dc;
+  --ssh-kms-focus: rgba(31, 107, 69, 0.24);
+  --ssh-kms-shadow: 0 34px 90px rgba(4, 12, 12, 0.38);
+}
+
+html.login-pf,
+html.login-pf body {
+  min-height: 100%;
+  background: var(--ssh-kms-bg);
+}
+
+.login-pf body#keycloak-bg {
+  min-height: 100vh;
+  margin: 0;
+  overflow-x: hidden;
+  background:
+    linear-gradient(90deg, rgba(9, 22, 23, 0.96) 0 48%, rgba(241, 245, 242, 0.94) 48% 100%),
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.07) 0 1px, transparent 1px 18px),
+    linear-gradient(145deg, var(--ssh-kms-bg) 0%, var(--ssh-kms-bg-soft) 48%, #eef3ef 48%, #dce5df 100%);
+  color: var(--ssh-kms-ink);
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  letter-spacing: 0;
+}
+
+.login-pf body#keycloak-bg::before {
+  position: fixed;
+  top: clamp(32px, 11vh, 120px);
+  right: min(7vw, 92px);
+  width: clamp(260px, 42vw, 560px);
+  aspect-ratio: 1;
+  background: url("../img/ssh-kms-icon.png") center / contain no-repeat;
+  content: "";
+  filter: saturate(1.08);
+  opacity: 0.12;
+  pointer-events: none;
+}
+
+.pf-v5-c-login {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  min-height: 100vh;
+  padding: clamp(24px, 5vw, 56px);
+  place-items: center;
+}
+
+.pf-v5-c-login__container {
+  display: grid;
+  width: min(1040px, 100%);
+  margin: 0;
+  align-items: center;
+  gap: clamp(32px, 7vw, 88px);
+  grid-template-areas: "header main";
+  grid-template-columns: minmax(260px, 1fr) minmax(360px, 448px);
+}
+
+#kc-header {
+  grid-area: header;
+  margin: 0;
+  padding: clamp(8px, 3vw, 28px);
+  color: #ffffff;
+}
+
+#kc-header-wrapper {
+  display: block;
+  color: #ffffff;
+  font-size: 0;
+  line-height: 1;
+  text-transform: none;
+}
+
+#kc-header-wrapper::before {
+  display: block;
+  width: 86px;
+  height: 86px;
+  margin: 0 0 22px;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-radius: 14px;
+  background:
+    rgba(255, 255, 255, 0.96)
+    url("../img/ssh-kms-icon.png")
+    center / 68px 68px
+    no-repeat;
+  box-shadow: 0 22px 55px rgba(2, 7, 7, 0.42);
+  content: "";
+}
+
+#kc-header-wrapper::after {
+  display: block;
+  max-width: 8ch;
+  color: #ffffff;
+  content: "SSH KMS";
+  font-size: clamp(3rem, 7vw, 5.8rem);
+  font-weight: 850;
+  letter-spacing: 0;
+  line-height: 0.94;
+  text-shadow: 0 5px 24px rgba(0, 0, 0, 0.28);
+}
+
+.pf-v5-c-login__main {
+  grid-area: main;
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  border-radius: 12px;
+  background: var(--ssh-kms-panel);
+  box-shadow: var(--ssh-kms-shadow);
+  color: var(--ssh-kms-ink);
+}
+
+.pf-v5-c-login__main-header {
+  padding: 34px 38px 18px;
+  border-bottom: 1px solid var(--ssh-kms-line);
+  background: var(--ssh-kms-panel-strong);
+}
+
+.pf-v5-c-login__main-body {
+  padding: 28px 38px 36px;
+  background: var(--ssh-kms-panel);
+}
+
+#kc-page-title {
+  margin: 0;
+  color: var(--ssh-kms-ink);
+  font-size: 1.65rem;
+  font-weight: 850;
+  letter-spacing: 0;
+  line-height: 1.15;
+}
+
+.pf-v5-c-form {
+  color: var(--ssh-kms-ink);
+}
+
+.pf-v5-c-form__group {
+  margin-bottom: 18px;
+}
+
+.pf-v5-c-form__label-text {
+  color: #25342f;
+  font-size: 0.93rem;
+  font-weight: 780;
+  letter-spacing: 0;
+}
+
+.pf-v5-c-form-control {
+  --pf-v5-c-form-control--BackgroundColor: #ffffff;
+  --pf-v5-c-form-control--Color: var(--ssh-kms-ink);
+  --pf-v5-c-form-control--BorderTopColor: transparent;
+  --pf-v5-c-form-control--BorderRightColor: transparent;
+  --pf-v5-c-form-control--BorderBottomColor: transparent;
+  --pf-v5-c-form-control--BorderLeftColor: transparent;
+  --pf-v5-c-form-control--after--BorderBottomColor: transparent;
+  display: flex;
+  min-height: 46px;
+  border: 1px solid var(--ssh-kms-line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--ssh-kms-ink);
+  box-shadow: 0 1px 0 rgba(12, 25, 21, 0.04);
+}
+
+.pf-v5-c-form-control:focus-within {
+  border-color: var(--ssh-kms-green);
+  box-shadow: 0 0 0 4px var(--ssh-kms-focus);
+}
+
+.pf-v5-c-form-control input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 0;
+  background: transparent;
+  color: var(--ssh-kms-ink);
+  font: inherit;
+  outline: none;
+}
+
+.pf-v5-c-form-control input::placeholder {
+  color: #6b7a74;
+  opacity: 1;
+}
+
+.pf-v5-c-input-group {
+  align-items: stretch;
+}
+
+.pf-v5-c-input-group .pf-v5-c-input-group__item.pf-m-fill .pf-v5-c-form-control {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.pf-v5-c-button {
+  --pf-v5-c-button--BorderRadius: 8px;
+  border-radius: 8px;
+  font-weight: 780;
+}
+
+.pf-v5-c-button.pf-m-control {
+  min-height: 46px;
+  border: 1px solid var(--ssh-kms-line);
+  border-left: 0;
+  border-radius: 0 8px 8px 0;
+  background: #ffffff;
+  color: var(--ssh-kms-muted);
+}
+
+.pf-v5-c-button.pf-m-control:hover,
+.pf-v5-c-button.pf-m-control:focus {
+  background: #f0f5f2;
+  color: var(--ssh-kms-ink);
+}
+
+.pf-v5-c-button.pf-m-primary {
+  min-height: 48px;
+  margin-top: 4px;
+  border: 0;
+  background: var(--ssh-kms-green);
+  color: #ffffff;
+  box-shadow: 0 14px 32px rgba(31, 107, 69, 0.26);
+}
+
+.pf-v5-c-button.pf-m-primary:hover,
+.pf-v5-c-button.pf-m-primary:focus {
+  background: var(--ssh-kms-green-dark);
+  color: #ffffff;
+}
+
+.pf-v5-c-button.pf-m-primary:focus-visible,
+.pf-v5-c-button.pf-m-control:focus-visible,
+a:focus-visible {
+  outline: 3px solid rgba(201, 109, 67, 0.42);
+  outline-offset: 3px;
+}
+
+.pf-v5-c-login__main-footer,
+#kc-info-wrapper {
+  color: var(--ssh-kms-muted);
+}
+
+#kc-info-wrapper {
+  border-radius: 8px;
+  background: #e7f3ec;
+  color: #17572e;
+}
+
+a {
+  color: var(--ssh-kms-green);
+  font-weight: 760;
+}
+
+a:hover {
+  color: var(--ssh-kms-green-dark);
+}
+
+.pf-v5-theme-dark .pf-v5-c-login__main,
+.pf-v5-theme-dark .pf-v5-c-login__main-header,
+.pf-v5-theme-dark .pf-v5-c-login__main-body,
+.pf-v5-theme-dark .pf-v5-c-form,
+.pf-v5-theme-dark #kc-page-title,
+.pf-v5-theme-dark .pf-v5-c-form__label-text {
+  color: var(--ssh-kms-ink);
+}
+
+.pf-v5-theme-dark .pf-v5-c-login__main {
+  background: var(--ssh-kms-panel);
+}
+
+.pf-v5-theme-dark .pf-v5-c-login__main-header {
+  background: var(--ssh-kms-panel-strong);
+}
+
+.pf-v5-theme-dark .pf-v5-c-login__main-body {
+  background: var(--ssh-kms-panel);
+}
+
+@media (max-width: 780px) {
+  .login-pf body#keycloak-bg {
+    background:
+      linear-gradient(180deg, rgba(9, 22, 23, 0.96) 0 38%, rgba(241, 245, 242, 0.96) 38% 100%),
+      repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.07) 0 1px, transparent 1px 18px),
+      linear-gradient(180deg, var(--ssh-kms-bg) 0%, var(--ssh-kms-bg-soft) 38%, #eef3ef 38%, #dce5df 100%);
+  }
+
+  .pf-v5-c-login {
+    padding: 22px;
+    place-items: start center;
+  }
+
+  .pf-v5-c-login__container {
+    width: min(480px, 100%);
+    gap: 22px;
+    grid-template-areas:
+      "header"
+      "main";
+    grid-template-columns: 1fr;
+  }
+
+  #kc-header {
+    padding: 10px 0 0;
+    text-align: center;
+  }
+
+  #kc-header-wrapper::before {
+    width: 70px;
+    height: 70px;
+    margin: 0 auto 14px;
+    background-size: 56px 56px;
+  }
+
+  #kc-header-wrapper::after {
+    max-width: none;
+    font-size: clamp(2.3rem, 13vw, 4rem);
+  }
+}
+
+@media (max-width: 480px) {
+  .pf-v5-c-login {
+    padding: 16px;
+  }
+
+  .pf-v5-c-login__main-header {
+    padding: 26px 24px 16px;
+  }
+
+  .pf-v5-c-login__main-body {
+    padding: 24px;
+  }
+
+  #kc-page-title {
+    font-size: 1.4rem;
+  }
+}

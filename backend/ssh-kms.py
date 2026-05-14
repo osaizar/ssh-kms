@@ -1,21 +1,33 @@
 import os
 import re
 import json
+from datetime import datetime, timezone
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 
+import jwt
 import uvicorn
-from fastapi import FastAPI, HTTPException, Request, status
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.staticfiles import StaticFiles
+from jwt import PyJWKClient
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 BASE_DIR = Path(__file__).resolve().parent
-KEY_FILE = os.environ.get("SSH_KMS_KEY_FILE", str(BASE_DIR / "ssh-keys.json"))
-CLIENT_FILE = os.environ.get("SSH_KMS_CLIENT_FILE", str(BASE_DIR / "client/get-ssh-keys.py"))
-FRONTEND_DIST = BASE_DIR / "frontend" / "dist"
+PROJECT_DIR = BASE_DIR.parent
+KEY_FILE = os.environ.get("SSH_KMS_KEY_FILE", str(PROJECT_DIR / "config/ssh-keys.json"))
+CLIENT_FILE = os.environ.get("SSH_KMS_CLIENT_FILE", str(PROJECT_DIR / "client/get-ssh-keys.py"))
+FRONTEND_DIST = PROJECT_DIR / "frontend" / "dist"
+OIDC_ENABLED = os.environ.get("OIDC_ENABLED", "false").lower() in ("1", "true", "yes")
+OIDC_ISSUER = os.environ.get("OIDC_ISSUER", "http://localhost:8080/realms/ssh-kms")
+OIDC_JWKS_URL = os.environ.get("OIDC_JWKS_URL", f"{OIDC_ISSUER}/protocol/openid-connect/certs")
+OIDC_CLIENT_ID = os.environ.get("OIDC_CLIENT_ID", "ssh-kms-ui")
+OIDC_VIEWER_ROLE = os.environ.get("OIDC_VIEWER_ROLE", "viewer")
+OIDC_ADMIN_ROLE = os.environ.get("OIDC_ADMIN_ROLE", "key-admin")
+OIDC_ALGORITHMS = os.environ.get("OIDC_ALGORITHMS", "RS256").split(",")
 
 KEY_FORMAT = """
 [
@@ -28,6 +40,8 @@ KEY_FORMAT = """
 
 PORT = 5000
 ADDR = "0.0.0.0"
+bearer_scheme = HTTPBearer(auto_error=False)
+jwks_client = PyJWKClient(OIDC_JWKS_URL) if OIDC_ENABLED else None
 
 
 class KeyEntry(BaseModel):
@@ -78,8 +92,8 @@ app.add_middleware(
 if FRONTEND_DIST.is_dir():
     app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="assets")
 
-if (BASE_DIR / "img").is_dir():
-    app.mount("/img", StaticFiles(directory=BASE_DIR / "img"), name="img")
+if (PROJECT_DIR / "img").is_dir():
+    app.mount("/img", StaticFiles(directory=PROJECT_DIR / "img"), name="img")
 
 
 def serialize_key(index, key):
@@ -104,6 +118,109 @@ def api_key_to_config_key(key):
         config_key["hostname_regex"] = config_key["hostname_regex"].strip()
     config_key["ssh-key"] = config_key.pop("ssh-key").strip()
     return config_key
+
+
+def unauthorized(detail="Authentication required"):
+    """Raise a standards-compatible Bearer authentication error."""
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=detail,
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
+def token_roles(payload):
+    """Extract realm and client roles from a decoded Keycloak access token."""
+    roles = set(payload.get("realm_access", {}).get("roles", []))
+    resource_access = payload.get("resource_access", {})
+
+    if OIDC_CLIENT_ID in resource_access:
+        roles.update(resource_access[OIDC_CLIENT_ID].get("roles", []))
+
+    return roles
+
+
+def token_client_is_allowed(payload):
+    """Check that the token was issued for or by the configured frontend client."""
+    if not OIDC_CLIENT_ID:
+        return True
+
+    audience = payload.get("aud", [])
+    if isinstance(audience, str):
+        audience = [audience]
+
+    return OIDC_CLIENT_ID in audience or payload.get("azp") == OIDC_CLIENT_ID
+
+
+def decode_access_token(token):
+    """Validate a Keycloak access token and return its decoded claims."""
+    try:
+        signing_key = jwks_client.get_signing_key_from_jwt(token)
+        payload = jwt.decode(
+            token,
+            signing_key.key,
+            algorithms=OIDC_ALGORITHMS,
+            issuer=OIDC_ISSUER,
+            options={"verify_aud": False},
+        )
+    except jwt.PyJWTError as e:
+        print(e)
+        unauthorized("Invalid access token")
+
+    if not token_client_is_allowed(payload):
+        unauthorized("Token client is not allowed")
+
+    return payload
+
+
+def current_username(user):
+    """Return the best display identifier from a validated user token."""
+    if not isinstance(user, dict):
+        return "unknown"
+
+    return user.get("preferred_username") or user.get("email") or user.get("sub") or "unknown"
+
+
+def audit_key_change(action, actor, key):
+    """Write a structured audit log entry for key mutations."""
+    print(json.dumps({
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "actor": current_username(actor),
+        "action": action,
+        "target_user": key.get("user"),
+        "target_hostname": key.get("hostname"),
+        "target_hostname_regex": key.get("hostname_regex"),
+    }))
+
+
+async def require_authenticated(credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)):
+    """Return the current user claims after validating OIDC authentication."""
+    if not OIDC_ENABLED:
+        return {
+            "preferred_username": "local-dev",
+            "realm_access": {"roles": [OIDC_VIEWER_ROLE, OIDC_ADMIN_ROLE]},
+        }
+
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        unauthorized()
+
+    return decode_access_token(credentials.credentials)
+
+
+def require_role(role):
+    """Build a FastAPI dependency that requires a Keycloak role."""
+    async def role_checker(user=Depends(require_authenticated)):
+        """Validate that the authenticated user has the required role."""
+        roles = token_roles(user)
+        role_allowed = role in roles
+        viewer_allowed = role == OIDC_VIEWER_ROLE and OIDC_ADMIN_ROLE in roles
+
+        if not role_allowed and not viewer_allowed:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+
+        return user
+
+    return role_checker
 
 
 @app.get("/get_client", response_class=PlainTextResponse)
@@ -144,7 +261,7 @@ async def get_keys(request: Request):
 
 
 @app.get("/api/keys")
-async def list_keys():
+async def list_keys(_user=Depends(require_role(OIDC_VIEWER_ROLE))):
     """List all configured key entries for the management UI."""
     try:
         keys = read_key_json()
@@ -155,12 +272,13 @@ async def list_keys():
 
 
 @app.post("/api/keys", status_code=status.HTTP_201_CREATED)
-async def create_key(key: KeyEntry):
+async def create_key(key: KeyEntry, current_user=Depends(require_role(OIDC_ADMIN_ROLE))):
     """Append a validated key entry to the JSON configuration file."""
     try:
         keys = read_key_json()
         keys.append(api_key_to_config_key(key))
         write_key_json(keys)
+        audit_key_change("create", current_user, keys[-1])
         return serialize_key(len(keys) - 1, keys[-1])
     except ValueError as e:
         print(e)
@@ -171,7 +289,7 @@ async def create_key(key: KeyEntry):
 
 
 @app.delete("/api/keys/{key_id}")
-async def delete_key(key_id: int):
+async def delete_key(key_id: int, current_user=Depends(require_role(OIDC_ADMIN_ROLE))):
     """Delete a key entry by its current JSON array index."""
     try:
         keys = read_key_json()
@@ -180,12 +298,22 @@ async def delete_key(key_id: int):
 
         deleted_key = keys.pop(key_id)
         write_key_json(keys)
+        audit_key_change("delete", current_user, deleted_key)
         return serialize_key(key_id, deleted_key)
     except HTTPException:
         raise
     except Exception as e:
         print(e)
         raise HTTPException(status_code=500)
+
+
+@app.get("/api/auth/me")
+async def get_current_user(current_user=Depends(require_authenticated)):
+    """Return the authenticated user's identity and roles."""
+    return {
+        "username": current_username(current_user),
+        "roles": sorted(token_roles(current_user)),
+    }
 
 
 @app.get("/", response_class=HTMLResponse)

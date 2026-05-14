@@ -1,0 +1,129 @@
+# Configuration
+
+SSH KMS has three configuration layers:
+
+- The SSH key JSON file used for authorization decisions.
+- Backend environment variables.
+- The Keycloak realm import used for users, roles, clients, and the login theme.
+
+## SSH Key File
+
+The key file defaults to [config/ssh-keys.json](../config/ssh-keys.json).
+Inside the container it is mounted at `/config/ssh-keys.json`.
+
+Each entry must contain:
+
+- `user`: exact local UNIX username.
+- `ssh-key`: public SSH key line.
+- exactly one of `hostname` or `hostname_regex`.
+
+Example:
+
+```json
+[
+  {
+    "user": "alice",
+    "hostname": "lab-web-01",
+    "ssh-key": "ssh-ed25519 AAAAC3Nza..."
+  },
+  {
+    "user": "ops",
+    "hostname_regex": "lab-.+",
+    "ssh-key": "ssh-ed25519 AAAAC3Nza..."
+  }
+]
+```
+
+Matching rules:
+
+- Users always match exactly.
+- `hostname` matches exactly.
+- `hostname_regex` is evaluated with Python `re.match`.
+- User regexes are not supported.
+
+The backend validates the file on startup and rejects entries with unknown
+fields, missing keys, empty values, or invalid hostname regexes.
+
+## Backend Environment Variables
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `SSH_KMS_KEY_FILE` | `config/ssh-keys.json` locally, `/config/ssh-keys.json` in Docker | Path to the writable key JSON file. |
+| `SSH_KMS_CLIENT_FILE` | `client/get-ssh-keys.py` locally, `/app/client/get-ssh-keys.py` in Docker | Client template served by `/get_client`. |
+| `OIDC_ENABLED` | `false` | Enables OIDC validation for management APIs. |
+| `OIDC_ISSUER` | `http://localhost:8080/realms/ssh-kms` | Expected token issuer. |
+| `OIDC_JWKS_URL` | `<issuer>/protocol/openid-connect/certs` | JWKS endpoint used to validate access tokens. |
+| `OIDC_CLIENT_ID` | `ssh-kms-ui` | Allowed OIDC frontend client. |
+| `OIDC_VIEWER_ROLE` | `viewer` | Role that can read key entries. |
+| `OIDC_ADMIN_ROLE` | `key-admin` | Role that can create and delete key entries. |
+| `OIDC_ALGORITHMS` | `RS256` | Comma-separated JWT algorithms accepted from Keycloak. |
+
+When `OIDC_ENABLED=false`, the backend treats management API requests as a
+local development administrator. Do not run production deployments this way.
+
+## Frontend Build Variables
+
+The React app reads OIDC settings at build time:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `VITE_OIDC_ENABLED` | `false` | Enables browser OIDC login. |
+| `VITE_OIDC_AUTHORITY` | `http://localhost:8080/realms/ssh-kms` | Keycloak realm URL visible from the browser. |
+| `VITE_OIDC_CLIENT_ID` | `ssh-kms-ui` | Public OIDC client ID. |
+
+Docker Compose passes these build arguments automatically.
+
+## Keycloak Realm
+
+The realm import is [keycloak/realm/ssh-kms-realm.json](../keycloak/realm/ssh-kms-realm.json).
+It configures:
+
+- realm `ssh-kms`
+- public OIDC client `ssh-kms-ui`
+- PKCE with `S256`
+- roles `viewer` and `key-admin`
+- default users
+- custom login theme `ssh-kms`
+
+Default users:
+
+| Username | Password | Roles |
+| --- | --- | --- |
+| `admin` | `admin` | `viewer`, `key-admin` |
+| `viewer` | `viewer` | `viewer` |
+
+To automate user creation, edit the `users` array in the realm file. A user
+with write access should include both roles:
+
+```json
+{
+  "username": "operator",
+  "enabled": true,
+  "emailVerified": true,
+  "credentials": [
+    {
+      "type": "password",
+      "value": "change-me",
+      "temporary": true
+    }
+  ],
+  "realmRoles": [
+    "viewer",
+    "key-admin"
+  ]
+}
+```
+
+With the provided Compose file, Keycloak stores state inside the container. A
+fresh `docker compose down` followed by `docker compose up` recreates the
+container and imports the realm file again.
+
+## Keycloak Theme
+
+The custom login theme lives in [keycloak/themes/ssh-kms](../keycloak/themes/ssh-kms).
+Compose mounts it into `/opt/keycloak/themes/ssh-kms`, and the realm selects it
+with `"loginTheme": "ssh-kms"`.
+
+The theme inherits Keycloak's v2 templates and overrides CSS plus shared image
+assets. This keeps the login flow compatible with Keycloak updates while still
+allowing the page to look like the SSH KMS application.
